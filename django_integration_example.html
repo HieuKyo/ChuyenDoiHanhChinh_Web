@@ -1,0 +1,336 @@
+{% comment %}
+============================================
+DJANGO TEMPLATE - Tích hợp Address Selector
+============================================
+
+File này là template mẫu để tích hợp component Address Selector
+vào dự án MauBieu7202 (Django)
+
+CÀI ĐẶT:
+--------
+1. Copy file này vào: MauBieu7202/templates/
+2. Copy address_selector_component.js vào: MauBieu7202/static/js/
+3. Copy dia_danh.json vào: MauBieu7202/static/data/
+4. Cập nhật model và form theo hướng dẫn bên dưới
+
+{% endcomment %}
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mẫu biểu - Nhập thông tin địa chỉ</title>
+
+    <!-- Bootstrap CSS (nếu chưa có) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h3>Mẫu biểu 7202 - Nhập thông tin</h3>
+            </div>
+
+            <div class="card-body">
+                <form method="post" id="mainForm">
+                    {% csrf_token %}
+
+                    {# ========== PHẦN THÔNG TIN KHÁC ========== #}
+                    <div class="mb-3">
+                        <label for="document_name" class="form-label">Tên văn bản</label>
+                        <input type="text" class="form-control" id="document_name"
+                               name="document_name" value="{{ form.document_name.value|default:'' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="document_date" class="form-label">Ngày văn bản</label>
+                        <input type="date" class="form-control" id="document_date"
+                               name="document_date" value="{{ form.document_date.value|default:'' }}">
+                    </div>
+
+                    {# ========== PHẦN ĐỊA CHỈ - ADDRESS SELECTOR ========== #}
+                    <hr class="my-4">
+                    <h4>Thông tin địa chỉ</h4>
+                    <p class="text-muted">Chọn địa chỉ theo cấp bậc hành chính</p>
+
+                    {# Container cho component #}
+                    <div id="address-selector-container"></div>
+
+                    {# Hidden fields để submit form #}
+                    <input type="hidden" name="province" id="field-province"
+                           value="{{ form.province.value|default:'' }}">
+                    <input type="hidden" name="district" id="field-district"
+                           value="{{ form.district.value|default:'' }}">
+                    <input type="hidden" name="ward" id="field-ward"
+                           value="{{ form.ward.value|default:'' }}">
+                    <input type="hidden" name="hamlet" id="field-hamlet"
+                           value="{{ form.hamlet.value|default:'' }}">
+                    <input type="hidden" name="full_address" id="field-full-address"
+                           value="{{ form.full_address.value|default:'' }}">
+
+                    {# ========== PREVIEW ĐỊA CHỈ ========== #}
+                    <div class="alert alert-secondary mt-3" role="alert">
+                        <strong>Địa chỉ đã chọn:</strong>
+                        <div id="address-preview" class="mt-2">
+                            <em class="text-muted">Chưa chọn địa chỉ</em>
+                        </div>
+                    </div>
+
+                    {# ========== CÁC FIELD KHÁC ========== #}
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Ghi chú</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3">{{ form.notes.value|default:'' }}</textarea>
+                    </div>
+
+                    {# ========== SUBMIT BUTTON ========== #}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary" onclick="history.back()">Hủy</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Lưu mẫu biểu
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {# ========== DEBUG INFO (Xóa khi production) ========== #}
+        {% if debug %}
+        <div class="card mt-3">
+            <div class="card-header bg-warning">
+                <strong>Debug Info</strong>
+            </div>
+            <div class="card-body">
+                <pre id="debug-info"></pre>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ========== JAVASCRIPT ========== #}
+    <script src="{% static 'js/address_selector_component.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Khởi tạo Address Selector Component
+            const addressSelector = new AddressSelector('#address-selector-container', {
+                // Đường dẫn đến file JSON
+                dataUrl: '{% static "data/dia_danh.json" %}',
+
+                // Hiển thị cấp Khóm/Ấp
+                showKhom: true,
+
+                // Callback khi chọn địa chỉ
+                autoFill: function(fullAddress, parts) {
+                    // Điền vào hidden fields
+                    document.getElementById('field-province').value = parts.province || '';
+                    document.getElementById('field-district').value = parts.district || '';
+                    document.getElementById('field-ward').value = parts.ward || '';
+                    document.getElementById('field-hamlet').value = parts.hamlet || '';
+                    document.getElementById('field-full-address').value = fullAddress || '';
+
+                    // Update preview
+                    const previewDiv = document.getElementById('address-preview');
+                    if (fullAddress) {
+                        previewDiv.innerHTML = `<strong>${fullAddress}</strong>`;
+                    } else {
+                        previewDiv.innerHTML = '<em class="text-muted">Chưa chọn địa chỉ</em>';
+                    }
+
+                    // Debug info (xóa khi production)
+                    {% if debug %}
+                    document.getElementById('debug-info').textContent = JSON.stringify({
+                        fullAddress: fullAddress,
+                        parts: parts
+                    }, null, 2);
+                    {% endif %}
+                },
+
+                // Callback khi component đã load xong
+                onLoad: function(instance) {
+                    console.log('Address Selector initialized');
+
+                    // Nếu đang edit (có giá trị sẵn), set lại giá trị
+                    {% if form.province.value %}
+                    instance.setValue({
+                        tinh: '{{ form.province.value }}',
+                        huyen: '{{ form.district.value }}',
+                        xa: '{{ form.ward.value }}',
+                        khom: '{{ form.hamlet.value }}'
+                    });
+                    {% endif %}
+                }
+            });
+
+            // Form validation trước khi submit
+            document.getElementById('mainForm').addEventListener('submit', function(e) {
+                const fullAddress = document.getElementById('field-full-address').value;
+
+                if (!fullAddress || fullAddress.trim() === '') {
+                    e.preventDefault();
+                    alert('Vui lòng chọn đầy đủ thông tin địa chỉ!');
+                    return false;
+                }
+
+                // Có thể thêm validation khác ở đây
+                return true;
+            });
+        });
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+{% comment %}
+============================================
+DJANGO MODEL & FORM - Code mẫu
+============================================
+
+# models.py
+from django.db import models
+
+class Document(models.Model):
+    """Model cho mẫu biểu"""
+
+    # Thông tin văn bản
+    document_name = models.CharField(max_length=200, verbose_name="Tên văn bản")
+    document_date = models.DateField(verbose_name="Ngày văn bản")
+
+    # Thông tin địa chỉ chi tiết
+    province = models.CharField(max_length=200, blank=True, verbose_name="Tỉnh/Thành phố")
+    district = models.CharField(max_length=200, blank=True, verbose_name="Quận/Huyện")
+    ward = models.CharField(max_length=200, blank=True, verbose_name="Phường/Xã")
+    hamlet = models.CharField(max_length=200, blank=True, verbose_name="Ấp/Khóm")
+
+    # Địa chỉ đầy đủ (auto-generated từ component)
+    full_address = models.TextField(blank=True, verbose_name="Địa chỉ đầy đủ")
+
+    # Các field khác
+    notes = models.TextField(blank=True, verbose_name="Ghi chú")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.document_name
+
+    class Meta:
+        verbose_name = "Mẫu biểu"
+        verbose_name_plural = "Mẫu biểu"
+
+
+# forms.py
+from django import forms
+from .models import Document
+
+class DocumentForm(forms.ModelForm):
+    class Meta:
+        model = Document
+        fields = [
+            'document_name', 'document_date',
+            'province', 'district', 'ward', 'hamlet', 'full_address',
+            'notes'
+        ]
+        widgets = {
+            'document_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'document_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            # Hidden fields (sẽ được điền tự động bởi component)
+            'province': forms.HiddenInput(),
+            'district': forms.HiddenInput(),
+            'ward': forms.HiddenInput(),
+            'hamlet': forms.HiddenInput(),
+            'full_address': forms.HiddenInput(),
+        }
+
+
+# views.py
+from django.shortcuts import render, redirect
+from .models import Document
+from .forms import DocumentForm
+
+def document_create(request):
+    if request.method == 'POST':
+        form = DocumentForm(request.POST)
+        if form.is_valid():
+            document = form.save()
+            return redirect('document_detail', pk=document.pk)
+    else:
+        form = DocumentForm()
+
+    return render(request, 'document_form.html', {
+        'form': form,
+        'title': 'Tạo mẫu biểu mới'
+    })
+
+def document_update(request, pk):
+    document = Document.objects.get(pk=pk)
+
+    if request.method == 'POST':
+        form = DocumentForm(request.POST, instance=document)
+        if form.is_valid():
+            form.save()
+            return redirect('document_detail', pk=document.pk)
+    else:
+        form = DocumentForm(instance=document)
+
+    return render(request, 'document_form.html', {
+        'form': form,
+        'title': 'Chỉnh sửa mẫu biểu'
+    })
+
+
+# urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('document/create/', views.document_create, name='document_create'),
+    path('document/<int:pk>/edit/', views.document_update, name='document_update'),
+]
+
+
+============================================
+SỬ DỤNG BIẾN TRONG WORD TEMPLATE
+============================================
+
+Trong file Word template (.docx), bạn có thể sử dụng các biến sau:
+
+{{ province }}          - Tỉnh Bạc Liêu
+{{ district }}          - Thị xã Giá Rai
+{{ ward }}              - Phường 1
+{{ hamlet }}            - 1
+{{ full_address }}      - Khóm 1, Phường 1, Thị xã Giá Rai, Tỉnh Bạc Liêu
+
+Ví dụ trong Word:
+------------------
+Kính gửi: Ủy ban nhân dân {{ ward }}
+Địa chỉ: {{ full_address }}
+
+Hoặc tạo table trong Word:
+---------------------------
+| Tỉnh/TP  | {{ province }}  |
+| Quận/Huyện| {{ district }} |
+| Phường/Xã | {{ ward }}     |
+| Khóm/Ấp  | {{ hamlet }}   |
+
+
+============================================
+MIGRATION
+============================================
+
+Sau khi tạo/cập nhật model, chạy lệnh:
+
+python manage.py makemigrations
+python manage.py migrate
+
+Tạo superuser để truy cập Admin:
+
+python manage.py createsuperuser
+
+Sau đó có thể quản lý dữ liệu qua Django Admin tại:
+http://localhost:8000/admin/
+
+{% endcomment %}
